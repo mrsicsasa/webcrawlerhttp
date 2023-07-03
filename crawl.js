@@ -1,5 +1,39 @@
 const{JSDOM}=require('jsdom')
-const { html } = require('parse5')
+async function  crawlPage(baseURL,currentURL,pages){
+    const baseURLObj=new URL(baseURL)
+    const currentURLObj=new URL(currentURL)
+    if(baseURLObj.hostname!==currentURLObj.hostname){
+        return pages
+    }
+    const normalizedCurrentURL=normalizeURL(currentURL)
+    if (pages[normalizedCurrentURL]>0){
+        pages[normalizedCurrentURL]++
+        return pages
+    }
+    pages[normalizedCurrentURL]=1
+try{
+    const resp=await fetch(currentURL)
+    if(resp.status>399){
+        console.log(`error in fetch with status code ${resp.status}`)
+        return pages
+    }
+    const contentType=resp.headers.get("content-type")
+    if (!contentType.includes("text/html")){
+        console.log(`no html response`)
+        return pages
+    }
+const htmlBody=await resp.text()
+nextUrls=getURLsFromHTML(htmlBody,baseURL)
+for(const nextURL of nextUrls){
+    pages=await crawlPage(baseURL,nextURL,pages)
+}
+return pages
+}
+catch(err){
+    console.log(err.message)
+}
+
+}
 function getURLsFromHTML(htmlBody,baseURL){
     const urls=[]
     const dom=new JSDOM(htmlBody)
@@ -41,5 +75,6 @@ function normalizeURL(urlString){
 }
 module.exports={
     normalizeURL,
-    getURLsFromHTML
+    getURLsFromHTML,
+    crawlPage
 }
